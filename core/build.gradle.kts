@@ -37,6 +37,7 @@ dependencies {
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.config)
     implementation(libs.firebase.perf)
+    implementation(libs.rootbeer.lib)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

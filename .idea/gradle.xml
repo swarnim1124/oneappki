@@ -22,8 +22,12 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/branding" />
             <option value="$PROJECT_DIR$/build-logic" />
+            <option value="$PROJECT_DIR$/config" />
             <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/core/navigation" />
+            <option value="$PROJECT_DIR$/core/permissions" />
             <option value="$PROJECT_DIR$/feature" />
             <option value="$PROJECT_DIR$/feature/attendance" />
             <option value="$PROJECT_DIR$/feature/curriculum" />
@@ -33,8 +37,8 @@
             <option value="$PROJECT_DIR$/feature/login" />
             <option value="$PROJECT_DIR$/feature/profile" />
             <option value="$PROJECT_DIR$/feature/timetable" />
+            <option value="$PROJECT_DIR$/plugins" />
             <option value="$PROJECT_DIR$/sdk" />
-            <option value="$PROJECT_DIR$/sdk/XscAnalyticsSDK" />
             <option value="$PROJECT_DIR$/sdk/XscAuthSDK" />
             <option value="$PROJECT_DIR$/sdk/XscCameraSDK" />
             <option value="$PROJECT_DIR$/sdk/XscChatSDK" />
@@ -42,9 +46,7 @@
             <option value="$PROJECT_DIR$/sdk/XscFileSDK" />
             <option value="$PROJECT_DIR$/sdk/XscMediaSDK" />
             <option value="$PROJECT_DIR$/sdk/XscNetworkSDK" />
-            <option value="$PROJECT_DIR$/sdk/XscNotificationSDK" />
             <option value="$PROJECT_DIR$/sdk/XscQRCodeSDK" />
-            <option value="$PROJECT_DIR$/sdk/XscStorageSDK" />
             <option value="$PROJECT_DIR$/sdk/XscThemeSDK" />
           </set>
         </option>

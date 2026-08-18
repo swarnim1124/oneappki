@@ -45,15 +45,6 @@ val hasReleaseSigningConfig = !releaseStoreFilePath.isNullOrBlank() &&
 android {
     namespace = "com.xsc.oneapp"
 
-    dynamicFeatures += listOf(
-        ":feature:exam",
-        ":feature:fee",
-        ":feature:attendance",
-        ":feature:curriculum",
-        ":feature:timetable",
-        ":feature:profile"
-    )
-
     defaultConfig {
         applicationId = "com.xsc.oneapp"
         targetSdk = 35
@@ -122,6 +113,7 @@ dependencies {
     implementation(project(":feature:timetable"))
     implementation(project(":feature:fee"))
     implementation(project(":sdk:XscAuthSDK"))
+    implementation(project(":sdk:XscNetworkSDK"))
     implementation(project(":sdk:XscThemeSDK"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

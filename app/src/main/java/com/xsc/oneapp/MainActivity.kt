@@ -28,6 +28,10 @@ class MainActivity : ComponentActivity() {
             val mainViewModel: MainViewModel = hiltViewModel()
             val isDarkMode by mainViewModel.isDarkMode.collectAsStateWithLifecycle()
 
+            androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_START) {
+                mainViewModel.refreshPermissions()
+            }
+
             CompositionLocalProvider(
                 LocalThemeToggle provides { mainViewModel.toggleTheme() },
                 LocalDarkTheme provides isDarkMode,

@@ -166,6 +166,16 @@ class SessionManager @Inject constructor(
     fun hasAnyPermission(vararg permissions: String): Boolean =
         permissions.any { it in currentPermissions.value }
 
+    /**
+     * Replaces the currently held permissions with a fresh list fetched directly from
+     * the backend. This overrides the permissions decoded from the JWT, allowing an
+     * admin's permission changes to take effect immediately without requiring a full
+     * token refresh or logout.
+     */
+    fun updatePermissions(freshPermissions: List<String>) {
+        _currentPermissions.value = freshPermissions
+    }
+
     suspend fun clearSession() {
         tokenManager.clearTokens()
     }

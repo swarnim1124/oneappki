@@ -23,7 +23,7 @@ import com.xsc.oneapp.feature.profile.navigation.profileGraph
 import com.xsc.oneapp.feature.exam.navigation.examGraph
 import com.xsc.oneapp.feature.attendance.navigation.attendanceGraph
 import com.xsc.oneapp.feature.curriculum.ui.screen.CurriculumScreen
-import com.xsc.oneapp.feature.fee.ui.screen.FeeScreen
+import com.xsc.oneapp.feature.fee.navigation.feeGraph
 import com.xsc.oneapp.feature.timetable.ui.screen.TimetableScreen
 import kotlinx.coroutines.flow.collectLatest
 
@@ -155,9 +155,16 @@ fun RootNavHost(
             CurriculumScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Routes.FEES) {
-            FeeScreen(onBack = { navController.popBackStack() })
-        }
+        feeGraph(
+            navController = navController,
+            onNavigateToInvoice = { invoiceId -> navController.navigate("invoice_details/$invoiceId") },
+            onNavigateToPaymentsLedger = { navController.navigate("payments_ledger") },
+            onNavigateToConcessions = { navController.navigate("fee/concessions") },
+            onNavigateToRefunds = { navController.navigate("fee/refunds") },
+            onNavigateToPenalties = { navController.navigate("fee/penalties") },
+            onNavigateToReports = { navController.navigate("fee/reports") },
+            onBack = { navController.popBackStack() }
+        )
 
         composable(Routes.TIMETABLE) {
             // The one route in this NavHost gated on a real, confirmed permission

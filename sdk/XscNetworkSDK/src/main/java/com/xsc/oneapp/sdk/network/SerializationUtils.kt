@@ -1,6 +1,8 @@
 package com.xsc.oneapp.sdk.network
 
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 
 object SerializationUtils {
 
@@ -13,7 +15,7 @@ object SerializationUtils {
     }
 
     inline fun <reified T> encodeToString(value: T): String {
-        return defaultJson.encodeToString(T::class.serializer(), value)
+        return defaultJson.encodeToString(serializer(), value)
     }
 
     inline fun <reified T> decodeFromString(json: String): T {

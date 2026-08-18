@@ -37,9 +37,9 @@ internal class PermissionCheckerHolder @Inject constructor(
 fun PermissionGate(
     permission: String,
     fallback: @Composable () -> Unit = {},
-    holder: PermissionCheckerHolder = hiltViewModel(),
     content: @Composable () -> Unit
 ) {
+    val holder: PermissionCheckerHolder = hiltViewModel()
     val heldPermissions by holder.checker.permissions.collectAsStateWithLifecycle()
     if (permission in heldPermissions) {
         content()

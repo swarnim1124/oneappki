@@ -75,7 +75,7 @@ class TimetableDashboardStatProvider @Inject constructor(
         )
     }
 
-    private data class UpcomingEntry(val entry: TimetableEntry, val slot: TimeSlot, val start: LocalTime)
+    internal data class UpcomingEntry(val entry: TimetableEntry, val slot: TimeSlot, val start: LocalTime)
 
     /**
      * Pure function (no DI, no clock read) so it's directly unit-testable: mirrors

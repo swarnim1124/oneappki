@@ -2,6 +2,7 @@ package com.xsc.oneapp.feature.timetable.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -304,14 +305,17 @@ private fun CellContent(
 
 /** Plain click modifier without the ripple's default 48dp minimum-size padding
  * fighting the compact cell size. */
-private fun Modifier.clickableCell(onClick: () -> Unit): Modifier =
-    this.then(
-        androidx.compose.foundation.clickable(
-            interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+@Composable
+private fun Modifier.clickableCell(onClick: () -> Unit): Modifier {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    return this.then(
+        Modifier.clickable(
+            interactionSource = interactionSource,
             indication = null,
             onClick = onClick
         )
     )
+}
 
 // --- Mobile: stacked day/period list (spec §12) ---
 
