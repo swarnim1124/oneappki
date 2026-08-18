@@ -5,22 +5,9 @@ plugins {
     id("oneapp.android.hilt")
     alias(libs.plugins.kotlin.compose)
 
-    // NOT ENABLED YET - enabling either of these right now guarantees a build failure.
-    //
-    // app/google-services.json registers the package `swarnim.oneapp.com`, but this
-    // module's applicationId is `com.xsc.oneapp` (below). The Google Services plugin
-    // matches the two and fails the build with:
-    //     No matching client found for package name 'com.xsc.oneapp'
-    // The Crashlytics plugin depends on google-services having run first, so it's
-    // blocked by the same fix.
-    //
-    // Fix: Firebase console -> Project settings -> Add app -> Android, register the
-    // package `com.xsc.oneapp`, download the new google-services.json and replace the
-    // one in this folder. Then uncomment both lines below. CrashReporter.kt (see
-    // :core) already calls Crashlytics defensively today and will start reporting
-    // with no further code changes once these are on.
-    // alias(libs.plugins.google.services)
-    // alias(libs.plugins.firebase.crashlytics.plugin)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics.plugin)
+    alias(libs.plugins.firebase.perf.plugin)
 }
 
 // Release signing material, read from a gitignored `keystore.properties` at the repo
@@ -57,6 +44,15 @@ val hasReleaseSigningConfig = !releaseStoreFilePath.isNullOrBlank() &&
 
 android {
     namespace = "com.xsc.oneapp"
+
+    dynamicFeatures += listOf(
+        ":feature:exam",
+        ":feature:fee",
+        ":feature:attendance",
+        ":feature:curriculum",
+        ":feature:timetable",
+        ":feature:profile"
+    )
 
     defaultConfig {
         applicationId = "com.xsc.oneapp"
@@ -113,6 +109,10 @@ dependencies {
     // Needed directly (not just transitively through the feature modules) for
     // CrashReporter.init() in OneAppApplication.
     implementation(project(":core"))
+    // NavigationRegistry (Routes.destinationFor's fallback resolver) and the
+    // PermissionGate this app gates Timetable's route with - see RootNavHost.kt.
+    implementation(project(":core:navigation"))
+    implementation(project(":core:permissions"))
     implementation(project(":feature:login"))
     implementation(project(":feature:dashboard"))
     implementation(project(":feature:profile"))

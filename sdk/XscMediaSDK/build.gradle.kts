@@ -1,5 +1,6 @@
 plugins {
     id("oneapp.android.library")
+    id("oneapp.android.hilt")
 }
 
 android {
@@ -8,4 +9,5 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    api(libs.coil.compose)
 }

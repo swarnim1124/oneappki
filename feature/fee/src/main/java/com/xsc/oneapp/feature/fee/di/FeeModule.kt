@@ -1,9 +1,11 @@
 package com.xsc.oneapp.feature.fee.di
 
 import com.xsc.oneapp.core.dashboard.DashboardStatProvider
+import com.xsc.oneapp.core.navigation.NavigationContribution
 import com.xsc.oneapp.feature.fee.dashboard.FeeDashboardStatProvider
 import com.xsc.oneapp.feature.fee.data.repository.FeeRepositoryImpl
 import com.xsc.oneapp.feature.fee.domain.repository.FeeRepository
+import com.xsc.oneapp.feature.fee.navigation.FeeNavigationContribution
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -25,4 +27,9 @@ abstract class FeeModule {
     @Binds
     @IntoSet
     abstract fun bindFeeDashboardStatProvider(impl: FeeDashboardStatProvider): DashboardStatProvider
+
+    /** Joins the app-wide navigation registry - see [NavigationContribution]. */
+    @Binds
+    @IntoSet
+    abstract fun bindFeeNavigationContribution(impl: FeeNavigationContribution): NavigationContribution
 }

@@ -81,10 +81,12 @@ enum class DashboardTab(val title: String, val icon: String) {
 /**
  * A single row in the Home "Actions & Feed" list and the Notifications tab.
  *
- * TEMPORARY DATA SOURCE: no activity/notification feed endpoint exists anywhere in the
- * codebase yet (sdk/XscNotificationSDK is an unimplemented placeholder). DashboardViewModel
- * currently populates this from a static in-memory list - see its
- * Backend Endpoint Requirements note for the real endpoint this should be replaced with.
+ * Sourced from [com.xsc.oneapp.feature.dashboard.domain.repository.NotificationRepository]
+ * via [com.xsc.oneapp.feature.dashboard.domain.usecase.GetNotificationsUseCase]. No
+ * activity/notification-feed dispatcher module exists in the backend contract yet
+ * (sdk/XscNotificationSDK is a reserved, unimplemented SDK module) - the repository
+ * honestly returns an empty list rather than fabricated rows until one does; see
+ * docs/BACKEND_ENDPOINT_REQUIREMENTS.md for the endpoint this is waiting on.
  */
 data class NotificationItem(
     val id: String,

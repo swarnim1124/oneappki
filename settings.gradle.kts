@@ -27,17 +27,31 @@ rootProject.name = "OneApp"
 
 include(":app")
 include(":core")
+// Added under core/ as sibling Gradle project paths rather than moving :core's
+// existing content - 8 feature modules already depend on `project(":core")`, and with
+// no Android/Gradle build available in this environment to verify a refactor of that
+// module against every dependent, adding new nested modules is the change that can't
+// silently break what already compiles. See docs/PRODUCTION_READINESS.md Risk #5 for
+// why :core:permissions exists and app/navigation/Routes.kt for :core:navigation.
+include(":core:permissions")
+include(":core:navigation")
+
+// White-label branding, environment/build-flavor configuration and a generic
+// feature-plugin registry (architecture audit Phase 2 - PDF "Configuration Engine" /
+// "White Label Config" / future-module plugin architecture). Real starter
+// infrastructure, not yet wired into runtime theme selection or a remote config
+// download - that's Phase 3 (docs/PRODUCTION_READINESS.md / the audit report).
+include(":branding")
+include(":config")
+include(":plugins")
 
 include(":sdk:XscNetworkSDK")
 include(":sdk:XscAuthSDK")
 include(":sdk:XscThemeSDK")
-include(":sdk:XscStorageSDK")
 include(":sdk:XscCommonUI")
-include(":sdk:XscAnalyticsSDK")
-include(":sdk:XscNotificationSDK")
+include(":sdk:XscQRCodeSDK")
 include(":sdk:XscMediaSDK")
 include(":sdk:XscCameraSDK")
-include(":sdk:XscQRCodeSDK")
 include(":sdk:XscFileSDK")
 include(":sdk:XscChatSDK")
 

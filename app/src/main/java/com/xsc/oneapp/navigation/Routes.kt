@@ -1,6 +1,7 @@
 package com.xsc.oneapp.navigation
 
 import android.net.Uri
+import com.xsc.oneapp.core.navigation.NavigationRegistry
 import com.xsc.oneapp.feature.attendance.navigation.AttendanceDestinations
 import com.xsc.oneapp.feature.exam.navigation.ExamDestinations
 import com.xsc.oneapp.feature.profile.navigation.ProfileDestinations
@@ -44,8 +45,17 @@ object Routes {
      * Singular aliases are accepted for the same reason, and `curriculum` is accepted
      * alongside `academics` so the backend can adopt the new name without a client
      * release. The m_AAA contract id remains `academics`.
+     *
+     * The `when` below stays the primary, unconditional resolver for every module
+     * this app has ever shipped a screen for - zero behavioural change from before.
+     * [registry] (architecture audit Phase 2 - see `core/navigation`) only takes over
+     * for a key none of those branches recognise: today that is still always the
+     * generic module template, since every feature module registers the exact same
+     * key set already listed here, but a feature added later needs no change to this
+     * `when` to become reachable - only its own `NavigationContribution` binding, the
+     * "dynamic module resolution" property `:app` previously had none of.
      */
-    fun destinationFor(route: String): String =
+    fun destinationFor(route: String, registry: NavigationRegistry): String =
         when (val key = route.trim().trim('/').lowercase()) {
             "profile" -> ProfileDestinations.PROFILE_ROUTE
             "exams", "exam" -> EXAMS
@@ -53,7 +63,7 @@ object Routes {
             "attendance" -> ATTENDANCE
             "academics", "curriculum" -> CURRICULUM
             "timetable" -> TIMETABLE
-            else -> module(key)
+            else -> registry.routeFor(key) ?: module(key)
         }
 
     fun verifyOtp(resetToken: String) = "verify_otp/${Uri.encode(resetToken)}"

@@ -142,9 +142,10 @@ private val DarkColors = darkColorScheme(
 @Composable
 fun OneAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColorScheme: androidx.compose.material3.ColorScheme? = null,
     content: @Composable () -> Unit
 ) {
-    val colors = if (darkTheme) DarkColors else LightColors
+    val colors = dynamicColorScheme ?: if (darkTheme) DarkColors else LightColors
     val statusColors = if (darkTheme) {
         OneAppStatusColors(success = OneAppSuccessOnDark, warning = OneAppWarningOnDark)
     } else {

@@ -40,7 +40,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.xsc.oneapp.core.dashboard.DashboardTimelinePoint
 import com.xsc.oneapp.feature.dashboard.domain.model.DashboardStat
 import com.xsc.oneapp.feature.dashboard.domain.model.ModuleItem
 import com.xsc.oneapp.feature.dashboard.domain.model.NotificationItem
@@ -69,9 +69,11 @@ fun getIconForNotification(iconName: String): ImageVector {
 
 /**
  * Home tab "Day at a Glance" - fed by the same `state.stats` list the previous
- * "Overview" row used (see DashboardViewModel.getMockStats /
- * AttendanceDashboardStatProvider). "attendance" is real once the shortage-report call
- * resolves; "nextclass" is a marked TEMPORARY placeholder - see that file.
+ * "Overview" row used (see DashboardViewModel.getMockStats). "attendance" is real
+ * once the shortage-report call resolves (AttendanceDashboardStatProvider);
+ * "nextclass" is real once the day's schedule resolves (TimetableDashboardStatProvider).
+ * Both fall back to the Dashboard's own "Coming Soon" placeholder until then - this
+ * composable only ever renders whatever DashboardStat it's handed, never its own data.
  */
 @Composable
 fun DayAtGlanceSection(stats: List<DashboardStat>) {
@@ -201,30 +203,18 @@ private fun NextClassGlanceCard(stat: DashboardStat, modifier: Modifier = Modifi
     }
 }
 
-private enum class TimelinePointState { DONE, CURRENT, UPCOMING }
-private data class TimelinePoint(val label: String, val state: TimelinePointState)
-
 /**
- * Home tab "Today's Timeline".
- *
- * TEMPORARY: static points matching the Stitch mock (09:00 done / 10:00 current /
- * 13:00, 15:00 upcoming). No endpoint exposes "today's schedule as a timeline" yet,
- * and feature/timetable's entries can't be resolved to a display-ready time list from
- * this module without a name-resolution endpoint (see DashboardViewModel's "nextclass"
- * comment) - see Backend Endpoint Requirements. Replace with real today's-schedule
- * data once that exists.
+ * Home tab "Today's Timeline" - fed by [DashboardState.todayTimeline]
+ * ([com.xsc.oneapp.core.dashboard.DashboardTimelineProvider], real today via
+ * TimetableTimelineProvider). Renders nothing when [points] is empty (no business
+ * module has today's schedule) rather than falling back to fabricated points - this
+ * card used to always render 4 hardcoded points regardless of the day or who was
+ * signed in.
  */
 @Composable
-fun TodayTimelineCard() {
+fun TodayTimelineCard(points: List<DashboardTimelinePoint>) {
+    if (points.isEmpty()) return
     val spacing = LocalSpacing.current
-    val points = remember {
-        listOf(
-            TimelinePoint("09:00", TimelinePointState.DONE),
-            TimelinePoint("10:00", TimelinePointState.CURRENT),
-            TimelinePoint("13:00", TimelinePointState.UPCOMING),
-            TimelinePoint("15:00", TimelinePointState.UPCOMING)
-        )
-    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -258,7 +248,7 @@ fun TodayTimelineCard() {
                     Text(
                         text = point.label,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (point.state == TimelinePointState.UPCOMING) {
+                        color = if (point.state == DashboardTimelinePoint.State.UPCOMING) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         } else {
                             MaterialTheme.colorScheme.primary
@@ -271,18 +261,18 @@ fun TodayTimelineCard() {
 }
 
 @Composable
-private fun TimelineDot(state: TimelinePointState) {
+private fun TimelineDot(state: DashboardTimelinePoint.State) {
     when (state) {
-        TimelinePointState.DONE -> Box(
+        DashboardTimelinePoint.State.DONE -> Box(
             modifier = Modifier.size(12.dp).background(MaterialTheme.colorScheme.primary, CircleShape)
         )
-        TimelinePointState.CURRENT -> Box(
+        DashboardTimelinePoint.State.CURRENT -> Box(
             modifier = Modifier
                 .size(12.dp)
                 .background(MaterialTheme.colorScheme.surface, CircleShape)
                 .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
         )
-        TimelinePointState.UPCOMING -> Box(
+        DashboardTimelinePoint.State.UPCOMING -> Box(
             modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.outlineVariant, CircleShape)
         )
     }
@@ -438,10 +428,11 @@ private fun WorkspaceTile(
  * module itself reads, not a card-local number. "Pay Now" is real navigation
  * (onPayFees -> the existing /fees route).
  *
- * TEMPORARY: [recentActivity] is still a static list - see
- * DashboardViewModel.getMockRecentActivity and Backend Endpoint Requirements. "View
- * All Activity" is real navigation (switches to the Alerts tab); only the rows shown
- * there are placeholders.
+ * [recentActivity] is the first few real rows from
+ * [com.xsc.oneapp.feature.dashboard.domain.repository.NotificationRepository] (empty
+ * until backend defines an activity-feed endpoint - see that interface's doc
+ * comment), not a static list. "View All Activity" is real navigation (switches to
+ * the Alerts tab).
  */
 @Composable
 fun ActionsFeedSection(

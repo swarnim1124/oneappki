@@ -7,6 +7,10 @@ import com.xsc.sdk.network.NetworkConfig
 import com.xsc.sdk.network.internal.AuthInterceptor
 import com.xsc.sdk.network.internal.DispatcherApi
 import com.xsc.sdk.network.internal.TokenAuthenticator
+import com.xsc.sdk.network.internal.RetryInterceptor
+import com.xsc.sdk.network.internal.CacheInterceptor
+import com.xsc.sdk.network.internal.AnalyticsInterceptor
+import com.xsc.oneapp.sdk.network.SerializationUtils
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,7 +19,8 @@ import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import okhttp3.MediaType.Companion.toMediaType
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -50,11 +55,17 @@ object NetworkModule {
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: TokenAuthenticator,
+        retryInterceptor: RetryInterceptor,
+        cacheInterceptor: CacheInterceptor,
+        analyticsInterceptor: AnalyticsInterceptor,
         loggingInterceptor: HttpLoggingInterceptor
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .authenticator(tokenAuthenticator)
+            .addInterceptor(retryInterceptor)
+            .addInterceptor(cacheInterceptor)
+            .addInterceptor(analyticsInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(NetworkConfig.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(NetworkConfig.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -77,11 +88,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient, gson: Gson): Retrofit =
+    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit =
         Retrofit.Builder()
             .baseUrl(NetworkConfig.BASE_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create(gson))
+            .addConverterFactory(
+                SerializationUtils.defaultJson.asConverterFactory("application/json".toMediaType())
+            )
             .build()
 
     @Provides

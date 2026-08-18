@@ -1,5 +1,5 @@
 plugins {
-    id("oneapp.android.library")
+    id("oneapp.android.dynamic.feature")
     id("oneapp.android.hilt")
     alias(libs.plugins.kotlin.compose)
 }
@@ -18,7 +18,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":app"))
     implementation(project(":core"))
+    implementation(project(":core:navigation"))
     implementation(project(":sdk:XscNetworkSDK"))
     implementation(project(":sdk:XscAuthSDK"))
     implementation(project(":sdk:XscThemeSDK"))

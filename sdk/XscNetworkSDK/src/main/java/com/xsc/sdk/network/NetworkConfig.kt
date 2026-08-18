@@ -20,12 +20,30 @@ object NetworkConfig {
 
     /**
      * SHA-256 pins for [okhttp3.CertificatePinner], keyed by hostname - e.g.
-     * `"api.globaloneapp.com" to listOf("sha256/AAAA...=")`. Empty until real pins
-     * for the production certificate chain are available; NetworkModule only
-     * enables pinning when this is non-empty, so leaving it empty preserves
-     * today's (unpinned) behavior exactly.
+     * `"api.globaloneapp.com" to listOf("sha256/AAAA...=")`. Parsed from
+     * [BuildConfig.CERTIFICATE_PINS_RAW], which is empty unless
+     * `-PcertificatePins=...` was passed at build time (see
+     * sdk/XscNetworkSDK/build.gradle.kts for the format) - there is deliberately no
+     * hardcoded default here: only whoever controls the production TLS certificate
+     * can supply its real pins, and a wrong or made-up pin doesn't warn, it just
+     * makes the app refuse to connect. NetworkModule only enables pinning when this
+     * is non-empty, so leaving it unset preserves today's (unpinned) behavior exactly.
      */
-    val CERTIFICATE_PINS: Map<String, List<String>> = emptyMap()
+    val CERTIFICATE_PINS: Map<String, List<String>> = parseCertificatePins(BuildConfig.CERTIFICATE_PINS_RAW)
+
+    /** Internal (not private) so it's directly unit-testable without going through
+     * BuildConfig, which is fixed at compile time. */
+    internal fun parseCertificatePins(raw: String): Map<String, List<String>> {
+        if (raw.isBlank()) return emptyMap()
+        return raw.split(";")
+            .mapNotNull { entry ->
+                val parts = entry.split("|", limit = 2)
+                val host = parts.getOrNull(0)?.trim()
+                val pins = parts.getOrNull(1)?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+                if (host.isNullOrEmpty() || pins.isNullOrEmpty()) null else host to pins
+            }
+            .toMap()
+    }
 
     /**
      * OkHttp timeouts, in seconds.

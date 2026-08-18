@@ -10,11 +10,13 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.xsc.oneapp.core.permissions.PermissionGate
 import com.xsc.oneapp.feature.dashboard.ui.screen.DashboardScreen
 import com.xsc.oneapp.feature.login.ui.effect.ForgotPasswordEffect
 import com.xsc.oneapp.feature.login.ui.screen.LoginScreen
 import com.xsc.oneapp.feature.login.ui.screen.ResetPasswordScreen
 import com.xsc.oneapp.feature.login.ui.screen.VerifyOtpScreen
+import com.xsc.oneapp.feature.timetable.domain.model.TimetablePermissions
 import com.xsc.sdk.auth.SessionManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.xsc.oneapp.feature.profile.navigation.profileGraph
@@ -28,8 +30,10 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun RootNavHost(
     navController: NavHostController,
-    sessionManager: SessionManager = hiltViewModel<com.xsc.oneapp.MainViewModel>().sessionManager
+    mainViewModel: com.xsc.oneapp.MainViewModel = hiltViewModel(),
+    sessionManager: SessionManager = mainViewModel.sessionManager
 ) {
+    val navigationRegistry = mainViewModel.navigationRegistry
     // Read auth state ONCE to pick the cold-start destination only. NavHost keys its
     // graph off `startDestination` - if this were reactive (collectAsState), flipping
     // isAuthenticated right after login would rebuild the graph and re-enter
@@ -125,7 +129,7 @@ fun RootNavHost(
         composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateToModule = { route ->
-                    navController.navigate(Routes.destinationFor(route))
+                    navController.navigate(Routes.destinationFor(route, navigationRegistry))
                 },
                 // Handled both directly (onLogout button click) for immediate UI
                 // feedback and reactively (isAuthenticated listener above) for
@@ -156,7 +160,23 @@ fun RootNavHost(
         }
 
         composable(Routes.TIMETABLE) {
-            TimetableScreen(onBack = { navController.popBackStack() })
+            // The one route in this NavHost gated on a real, confirmed permission
+            // (architecture audit Phase 2 - see docs/PRODUCTION_READINESS.md Risk #5).
+            // Previously reachable to every signed-in user regardless of
+            // TimetablePermissions.TIMETABLE_VIEW, same as every other module here
+            // still is - no other feature has a confirmed backend permission-string
+            // contract yet to gate on (see docs/BACKEND_ENDPOINT_REQUIREMENTS.md #9).
+            PermissionGate(
+                permission = TimetablePermissions.TIMETABLE_VIEW,
+                fallback = {
+                    // No confirmed contract for an in-app "access denied" screen -
+                    // pop straight back rather than render a screen with no data
+                    // queued behind it.
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
+            ) {
+                TimetableScreen(onBack = { navController.popBackStack() })
+            }
         }
 
         composable(Routes.MODULE_PATTERN) { backStackEntry ->

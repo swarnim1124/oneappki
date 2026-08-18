@@ -27,3 +27,26 @@ interface DashboardStatProvider {
     val statId: String
     suspend fun provideStat(): DashboardStatContribution?
 }
+
+/** One point on the Home tab's "Today's Timeline" - see [DashboardTimelineProvider]. */
+data class DashboardTimelinePoint(
+    val label: String,
+    val state: State
+) {
+    enum class State { DONE, CURRENT, UPCOMING }
+}
+
+/**
+ * Extension point for a business feature module to feed today's real schedule into
+ * the Dashboard's "Today's Timeline" card, the same way [DashboardStatProvider] feeds
+ * a single stat tile - a feature module implements this and joins it via Hilt
+ * `@Binds @IntoSet` in its own DI module; :feature:dashboard only depends on this
+ * contract, defined here in :core, never on the feature module itself.
+ *
+ * Return an empty list when the module has nothing to show (no session, request
+ * failed, no schedule configured for today) so the Dashboard can hide the card
+ * entirely rather than render a fabricated one.
+ */
+interface DashboardTimelineProvider {
+    suspend fun provideTimeline(): List<DashboardTimelinePoint>
+}

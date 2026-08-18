@@ -3,13 +3,15 @@ package com.xsc.oneapp.feature.dashboard.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xsc.oneapp.core.dashboard.DashboardStatProvider
+import com.xsc.oneapp.core.dashboard.DashboardTimelinePoint
+import com.xsc.oneapp.core.dashboard.DashboardTimelineProvider
 import com.xsc.oneapp.feature.dashboard.domain.model.DashboardStat
 import com.xsc.oneapp.feature.dashboard.domain.model.DashboardTab
 import com.xsc.oneapp.feature.dashboard.domain.model.ModuleItem
-import com.xsc.oneapp.feature.dashboard.domain.model.NotificationGroup
 import com.xsc.oneapp.feature.dashboard.domain.model.NotificationItem
 import com.xsc.oneapp.feature.dashboard.domain.model.QuickAction
 import com.xsc.oneapp.feature.dashboard.domain.usecase.GetAccessibleModulesUseCase
+import com.xsc.oneapp.feature.dashboard.domain.usecase.GetNotificationsUseCase
 import com.xsc.oneapp.feature.dashboard.domain.usecase.GetPinnedModuleIdsUseCase
 import com.xsc.oneapp.feature.dashboard.domain.usecase.TogglePinnedModuleUseCase
 import com.xsc.sdk.auth.SessionManager
@@ -46,15 +48,16 @@ data class DashboardState(
     val isModulesLoading: Boolean = true,
     val pinnedModuleIds: Set<String> = emptySet(),
     val isPinPickerOpen: Boolean = false,
-    // TEMPORARY: see NotificationItem's doc comment - populated from a static list
-    // below until a real notification/activity feed endpoint exists.
+    /** From [GetNotificationsUseCase] - see [NotificationItem]'s doc comment for why
+     * this is genuinely empty (not "still loading") until backend defines an
+     * activity-feed endpoint. */
     val notifications: List<NotificationItem> = emptyList(),
-    // TEMPORARY: Home "Actions & Feed" preview - a separate, shorter static list from
-    // [notifications] because the Stitch mocks show different sample content for the
-    // Home feed vs. the full Notifications tab. Both should come from the same real
-    // activity-feed endpoint once one exists (see Backend Endpoint Requirements) -
-    // this field can likely be dropped in favour of notifications.take(n) at that point.
+    /** Home "Actions & Feed" preview - the first few [notifications], not a separate
+     * data source. */
     val recentActivity: List<NotificationItem> = emptyList(),
+    /** "Today's Timeline" card - from [DashboardTimelineProvider]. Empty means "hide
+     * the card", not "still loading" (no business module has today's schedule). */
+    val todayTimeline: List<DashboardTimelinePoint> = emptyList(),
 ) {
     val pinnedLimitReached: Boolean get() = pinnedModuleIds.size >= MAX_PINNED_MODULES
 }
@@ -65,7 +68,9 @@ class DashboardViewModel @Inject constructor(
     private val getAccessibleModulesUseCase: GetAccessibleModulesUseCase,
     private val getPinnedModuleIdsUseCase: GetPinnedModuleIdsUseCase,
     private val togglePinnedModuleUseCase: TogglePinnedModuleUseCase,
-    private val statProviders: Set<@JvmSuppressWildcards DashboardStatProvider>
+    private val getNotificationsUseCase: GetNotificationsUseCase,
+    private val statProviders: Set<@JvmSuppressWildcards DashboardStatProvider>,
+    private val timelineProviders: Set<@JvmSuppressWildcards DashboardTimelineProvider>
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DashboardState())
@@ -76,6 +81,7 @@ class DashboardViewModel @Inject constructor(
         loadAccessibleModules()
         _state.update { it.copy(pinnedModuleIds = getPinnedModuleIdsUseCase()) }
         loadNotifications()
+        loadTodayTimeline()
     }
 
     private fun loadSessionData() {
@@ -160,8 +166,8 @@ class DashboardViewModel @Inject constructor(
         _state.update { it.copy(isPinPickerOpen = false) }
     }
 
-    /** Local-only, matching the temporary notification list: flips every row to read
-     * and zeroes the badge. Nothing is sent to a backend - there is no endpoint yet. */
+    /** Local-only: flips every row to read and zeroes the badge. Nothing is sent to
+     * a backend - there is no read-state endpoint yet (see NotificationRepository). */
     fun markAllNotificationsRead() {
         _state.update {
             it.copy(
@@ -187,13 +193,33 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun loadNotifications() {
-        val notifications = getMockNotifications()
-        _state.update {
-            it.copy(
-                notifications = notifications,
-                unreadNotifications = notifications.count { n -> n.isUnread },
-                recentActivity = getMockRecentActivity()
-            )
+        viewModelScope.launch {
+            val notifications = getNotificationsUseCase()
+            _state.update {
+                it.copy(
+                    notifications = notifications,
+                    unreadNotifications = notifications.count { n -> n.isUnread },
+                    recentActivity = notifications.take(RECENT_ACTIVITY_PREVIEW_COUNT)
+                )
+            }
+        }
+    }
+
+    /** First provider with a non-empty result wins - today only one business module
+     * (Timetable) implements [DashboardTimelineProvider], but this stays a Set so a
+     * second module can join later (see DashboardStatProvider's extension-point
+     * pattern) without the Dashboard needing to change. */
+    private fun loadTodayTimeline() {
+        viewModelScope.launch {
+            var timeline: List<DashboardTimelinePoint> = emptyList()
+            for (provider in timelineProviders) {
+                val result = provider.provideTimeline()
+                if (result.isNotEmpty()) {
+                    timeline = result
+                    break
+                }
+            }
+            _state.update { it.copy(todayTimeline = timeline) }
         }
     }
 
@@ -218,12 +244,12 @@ class DashboardViewModel @Inject constructor(
             // only what shows before that resolves or if it fails.
             DashboardStat("attendance", "Overall Attendance", "--", "ic_clock", "Coming Soon", DashboardStat.TagStyle.NEUTRAL),
             DashboardStat("fees", "PENDING FEES", "--", "ic_rupee", "Coming Soon", DashboardStat.TagStyle.NEUTRAL),
-            // TEMPORARY: feature/timetable's TimetableEntry has no resolved course/room
-            // display name (see that model's own doc comment - courseId/roomId are raw
-            // ids with no name-resolution endpoint in this module), so "next class"
-            // can't be computed from real data yet. Static placeholder until a resolved
-            // endpoint exists - see Backend Endpoint Requirements.
-            DashboardStat("nextclass", "Next Class", "Data Structures", "ic_clock_outline", "10:00 AM • Room 302", DashboardStat.TagStyle.NEUTRAL),
+            // Overlaid with a real (id-labelled - m_timetable resolves no course/room
+            // names, see TimetableEntry's doc comment) upcoming class by
+            // TimetableDashboardStatProvider (feature/timetable) when one exists
+            // today; this is only what shows before that resolves, on a day with no
+            // more classes, or without timetable.timetable.view permission.
+            DashboardStat("nextclass", "Next Class", "--", "ic_clock_outline", "Coming Soon", DashboardStat.TagStyle.NEUTRAL),
             DashboardStat("assignments", "ASSIGNMENTS", "--", "ic_document", "Coming Soon", DashboardStat.TagStyle.NEUTRAL)
         )
     }
@@ -237,86 +263,9 @@ class DashboardViewModel @Inject constructor(
         )
     }
 
-    /**
-     * TEMPORARY: static stand-in for the Home "Actions & Feed" preview - see
-     * [DashboardState.recentActivity].
-     */
-    private fun getMockRecentActivity(): List<NotificationItem> {
-        return listOf(
-            NotificationItem(
-                id = "exam-upcoming",
-                title = "Mathematics Exam Upcoming",
-                message = "24 Aug • Room 101",
-                timestamp = "24 Aug",
-                icon = "ic_document",
-                isUnread = false,
-                group = NotificationGroup.TODAY
-            ),
-            NotificationItem(
-                id = "attendance-marked",
-                title = "Attendance marked for Calculus",
-                message = "2 hours ago",
-                timestamp = "2 hours ago",
-                icon = "ic_clock",
-                isUnread = false,
-                group = NotificationGroup.TODAY
-            ),
-            NotificationItem(
-                id = "fee-payment-received",
-                title = "Fee payment received",
-                message = "Yesterday",
-                timestamp = "Yesterday",
-                icon = "ic_rupee",
-                isUnread = false,
-                group = NotificationGroup.EARLIER
-            )
-        )
-    }
-
-    /**
-     * TEMPORARY: static stand-in for the Home "Actions & Feed" list and the
-     * Notifications tab - see [NotificationItem]'s doc comment. Content mirrors the
-     * Stitch mock so the redesigned UI isn't empty; replace wholesale once a real
-     * feed/notification endpoint exists.
-     */
-    private fun getMockNotifications(): List<NotificationItem> {
-        return listOf(
-            NotificationItem(
-                id = "fee-payment-success",
-                title = "Fee Payment Success",
-                message = "Your payment of ₹1,250.00 for the Fall Semester has been processed successfully.",
-                timestamp = "10m ago",
-                icon = "ic_check_circle",
-                isUnread = true,
-                group = NotificationGroup.TODAY
-            ),
-            NotificationItem(
-                id = "grade-published",
-                title = "New Grade Published",
-                message = "Professor Smith has published the mid-term grades for Advanced Algorithms.",
-                timestamp = "2h ago",
-                icon = "ic_school",
-                isUnread = true,
-                group = NotificationGroup.TODAY
-            ),
-            NotificationItem(
-                id = "timetable-change",
-                title = "Timetable Change",
-                message = "Physics 101 lecture scheduled for 2:00 PM today has been moved to 3:30 PM, Room 210.",
-                timestamp = "5h ago",
-                icon = "ic_event_busy",
-                isUnread = false,
-                group = NotificationGroup.TODAY
-            ),
-            NotificationItem(
-                id = "library-due",
-                title = "Library Book Due Tomorrow",
-                message = "\"Introduction to Algorithms, 3rd Edition\" is due tomorrow. Please renew or return it.",
-                timestamp = "Yesterday",
-                icon = "ic_library",
-                isUnread = false,
-                group = NotificationGroup.EARLIER
-            )
-        )
+    private companion object {
+        /** How many of [DashboardState.notifications] the Home "Actions & Feed"
+         * preview shows before "View all" hands off to the full Notifications tab. */
+        const val RECENT_ACTIVITY_PREVIEW_COUNT = 3
     }
 }

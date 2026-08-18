@@ -227,7 +227,7 @@ private fun HomeTab(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SectionHeader(title = "Day at a Glance")
             DayAtGlanceSection(stats = state.stats)
-            TodayTimelineCard()
+            TodayTimelineCard(points = state.todayTimeline)
         }
 
         val feesStat = state.stats.firstOrNull { it.id == "fees" }

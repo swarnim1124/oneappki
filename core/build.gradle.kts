@@ -1,5 +1,8 @@
 plugins {
     id("oneapp.android.library")
+    id("oneapp.android.hilt")
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -11,15 +14,29 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
     implementation(libs.gson)
+    implementation(libs.kotlinx.serialization.json)
 
-    // Compiles and links regardless of whether the google-services/crashlytics
-    // Gradle plugins are applied - those are only needed for config injection and
-    // mapping-file upload, not for the SDK classes themselves. See CrashReporter.kt:
-    // every call is guarded, so this is safe to have active before
-    // app/google-services.json is fixed (see app/build.gradle.kts).
+    // Room persistence & SQLCipher encryption
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+    implementation(libs.sqlcipher.android)
+    implementation(libs.androidx.sqlite.ktx)
+
+    // WorkManager & Hilt Work
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.hilt.work)
+    kapt(libs.hilt.compiler)
+
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.config)
+    implementation(libs.firebase.perf)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

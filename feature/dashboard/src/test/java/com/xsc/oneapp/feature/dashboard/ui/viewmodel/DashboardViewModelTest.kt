@@ -2,8 +2,13 @@ package com.xsc.oneapp.feature.dashboard.ui.viewmodel
 
 import com.xsc.oneapp.core.dashboard.DashboardStatContribution
 import com.xsc.oneapp.core.dashboard.DashboardStatProvider
+import com.xsc.oneapp.core.dashboard.DashboardTimelinePoint
+import com.xsc.oneapp.core.dashboard.DashboardTimelineProvider
 import com.xsc.oneapp.feature.dashboard.domain.model.ModuleItem
+import com.xsc.oneapp.feature.dashboard.domain.model.NotificationGroup
+import com.xsc.oneapp.feature.dashboard.domain.model.NotificationItem
 import com.xsc.oneapp.feature.dashboard.domain.usecase.GetAccessibleModulesUseCase
+import com.xsc.oneapp.feature.dashboard.domain.usecase.GetNotificationsUseCase
 import com.xsc.oneapp.feature.dashboard.domain.usecase.GetPinnedModuleIdsUseCase
 import com.xsc.oneapp.feature.dashboard.domain.usecase.TogglePinnedModuleUseCase
 import com.xsc.sdk.auth.SessionManager
@@ -30,6 +35,7 @@ class DashboardViewModelTest {
     private lateinit var getAccessibleModulesUseCase: GetAccessibleModulesUseCase
     private lateinit var getPinnedModuleIdsUseCase: GetPinnedModuleIdsUseCase
     private lateinit var togglePinnedModuleUseCase: TogglePinnedModuleUseCase
+    private lateinit var getNotificationsUseCase: GetNotificationsUseCase
 
     private val curriculum = ModuleItem(
         "academics", "Curriculum", "school", "/academics", ModuleItem.ModuleStatus.ACTIVE, "#4F46E5"
@@ -42,11 +48,13 @@ class DashboardViewModelTest {
         getAccessibleModulesUseCase = mockk()
         getPinnedModuleIdsUseCase = mockk()
         togglePinnedModuleUseCase = mockk()
+        getNotificationsUseCase = mockk()
         every { sessionManager.getDisplayName() } returns "Student One"
         every { sessionManager.getFirstName() } returns "Student"
         every { sessionManager.currentEmail } returns MutableStateFlow("student@oneapp.local")
         every { sessionManager.currentRole } returns MutableStateFlow("student")
         every { getPinnedModuleIdsUseCase() } returns emptySet()
+        coEvery { getNotificationsUseCase() } returns emptyList()
     }
 
     @After
@@ -54,12 +62,17 @@ class DashboardViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel(statProviders: Set<DashboardStatProvider> = emptySet()) = DashboardViewModel(
+    private fun viewModel(
+        statProviders: Set<DashboardStatProvider> = emptySet(),
+        timelineProviders: Set<DashboardTimelineProvider> = emptySet()
+    ) = DashboardViewModel(
         sessionManager,
         getAccessibleModulesUseCase,
         getPinnedModuleIdsUseCase,
         togglePinnedModuleUseCase,
-        statProviders
+        getNotificationsUseCase,
+        statProviders,
+        timelineProviders
     )
 
     @Test
@@ -160,5 +173,58 @@ class DashboardViewModelTest {
 
         val attendanceStat = vm.state.value.stats.first { it.id == "attendance" }
         assertEquals("--", attendanceStat.value)
+    }
+
+    @Test
+    fun `notifications are empty rather than fabricated when the repository has nothing`() = runTest {
+        coEvery { getAccessibleModulesUseCase() } returns emptyList()
+        coEvery { getNotificationsUseCase() } returns emptyList()
+
+        val vm = viewModel()
+
+        assertEquals(emptyList<Any>(), vm.state.value.notifications)
+        assertEquals(emptyList<Any>(), vm.state.value.recentActivity)
+        assertEquals(0, vm.state.value.unreadNotifications)
+    }
+
+    @Test
+    fun `real notifications from the use case populate state and the unread count`() = runTest {
+        coEvery { getAccessibleModulesUseCase() } returns emptyList()
+        val real = NotificationItem(
+            id = "n1", title = "Fee due", message = "Balance outstanding",
+            timestamp = "1h ago", icon = "ic_rupee", isUnread = true, group = NotificationGroup.TODAY
+        )
+        coEvery { getNotificationsUseCase() } returns listOf(real)
+
+        val vm = viewModel()
+
+        assertEquals(listOf(real), vm.state.value.notifications)
+        assertEquals(listOf(real), vm.state.value.recentActivity)
+        assertEquals(1, vm.state.value.unreadNotifications)
+    }
+
+    @Test
+    fun `today's timeline is empty rather than fabricated when no provider has one`() = runTest {
+        coEvery { getAccessibleModulesUseCase() } returns emptyList()
+
+        val vm = viewModel()
+
+        assertEquals(emptyList<DashboardTimelinePoint>(), vm.state.value.todayTimeline)
+    }
+
+    @Test
+    fun `today's timeline comes from the first provider with a non-empty schedule`() = runTest {
+        coEvery { getAccessibleModulesUseCase() } returns emptyList()
+        val silentProvider = object : DashboardTimelineProvider {
+            override suspend fun provideTimeline(): List<DashboardTimelinePoint> = emptyList()
+        }
+        val realPoints = listOf(DashboardTimelinePoint("09:00", DashboardTimelinePoint.State.CURRENT))
+        val realProvider = object : DashboardTimelineProvider {
+            override suspend fun provideTimeline(): List<DashboardTimelinePoint> = realPoints
+        }
+
+        val vm = viewModel(timelineProviders = setOf(silentProvider, realProvider))
+
+        assertEquals(realPoints, vm.state.value.todayTimeline)
     }
 }

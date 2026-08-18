@@ -3,8 +3,11 @@ package com.xsc.oneapp.feature.dashboard.di
 import android.content.Context
 import android.content.SharedPreferences
 import com.xsc.oneapp.core.dashboard.DashboardStatProvider
+import com.xsc.oneapp.core.dashboard.DashboardTimelineProvider
 import com.xsc.oneapp.feature.dashboard.data.repository.DashboardRepositoryImpl
+import com.xsc.oneapp.feature.dashboard.data.repository.NotificationRepositoryImpl
 import com.xsc.oneapp.feature.dashboard.domain.repository.DashboardRepository
+import com.xsc.oneapp.feature.dashboard.domain.repository.NotificationRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -22,6 +25,10 @@ abstract class DashboardModule {
     @Singleton
     abstract fun bindDashboardRepository(impl: DashboardRepositoryImpl): DashboardRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
+
     /**
      * Declares the extension point even though no business module implements
      * [DashboardStatProvider] yet, so Set<DashboardStatProvider> resolves to an
@@ -30,6 +37,11 @@ abstract class DashboardModule {
      */
     @Multibinds
     abstract fun bindDashboardStatProviders(): Set<DashboardStatProvider>
+
+    /** Same reasoning as [bindDashboardStatProviders], for the "Today's Timeline"
+     * card's extension point - see [DashboardTimelineProvider]. */
+    @Multibinds
+    abstract fun bindDashboardTimelineProviders(): Set<DashboardTimelineProvider>
 
     companion object {
         @Provides

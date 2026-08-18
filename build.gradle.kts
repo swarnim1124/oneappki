@@ -6,8 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.kapt) apply false
     alias(libs.plugins.hilt) apply false
-    // Declared here (apply false) so the version resolves for :app. Applying it in
-    // :app is deliberately still commented out - see app/build.gradle.kts.
     alias(libs.plugins.google.services) apply false
     alias(libs.plugins.firebase.crashlytics.plugin) apply false
+    alias(libs.plugins.firebase.perf.plugin) apply false
 }

@@ -1,6 +1,7 @@
 plugins {
     id("oneapp.android.library")
     id("oneapp.android.hilt")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // Override at build time instead of editing source, e.g.:
@@ -11,6 +12,16 @@ plugins {
 val explicitBaseUrl = project.findProperty("baseUrl") as String?
 val baseUrl = explicitBaseUrl ?: "https://dev.globaloneapp.com/"
 val recaptchaSiteKey = (project.findProperty("recaptchaSiteKey") as String?) ?: ""
+
+// SHA-256 SPKI pins for OkHttp's CertificatePinner (parsed in NetworkConfig.CERTIFICATE_PINS,
+// consumed by NetworkModule). Nothing hardcoded here - these are the production TLS
+// certificate's own pins, which only whoever controls that certificate can supply;
+// there is no safe placeholder to ship instead (a wrong pin doesn't warn, it just
+// makes the app refuse to connect). Empty by default, so pinning stays off exactly
+// as before until real pins are supplied.
+// Format: "host1|sha256/AAAA=,sha256/BBBB=;host2|sha256/CCCC="
+//   ./gradlew assembleRelease -PbaseUrl=... -PcertificatePins="api.globaloneapp.com|sha256/AAAA=,sha256/BBBB="
+val certificatePins = (project.findProperty("certificatePins") as String?) ?: ""
 
 // PRODUCTION_READINESS_AUDIT.md C-5: a plain `./gradlew assembleRelease` used to
 // silently produce a release build still pointed at the dev server, because this
@@ -33,6 +44,7 @@ android {
     defaultConfig {
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         buildConfigField("String", "RECAPTCHA_SITE_KEY", "\"$recaptchaSiteKey\"")
+        buildConfigField("String", "CERTIFICATE_PINS_RAW", "\"$certificatePins\"")
     }
 
     buildFeatures {
@@ -53,6 +65,10 @@ dependencies {
     implementation(libs.okhttp.core)
     implementation(libs.okhttp.logging.interceptor)
     api(libs.gson)
+    api(libs.kotlinx.serialization.json)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
 
     implementation(libs.play.services.recaptcha)
+
+    testImplementation(libs.junit)
 }

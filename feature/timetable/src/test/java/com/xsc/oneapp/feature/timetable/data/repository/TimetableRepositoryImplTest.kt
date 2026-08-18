@@ -3,6 +3,7 @@ package com.xsc.oneapp.feature.timetable.data.repository
 import com.google.gson.Gson
 import com.google.gson.JsonParser
 import com.xsc.oneapp.feature.timetable.data.network.TimetableEndpoint
+import com.xsc.oneapp.feature.timetable.domain.model.TimetableFilter
 import com.xsc.sdk.auth.SessionManager
 import com.xsc.sdk.network.APIClient
 import com.xsc.sdk.network.APIError
@@ -244,5 +245,159 @@ class TimetableRepositoryImplTest {
         assertEquals("Timetable draft submitted for Dean review", approval.description)
         assertEquals(TimetableEndpoint.SubModules.APPROVAL, requestSlot.captured.subMod)
         assertEquals(TimetableEndpoint.Actions.TIMETABLE_APPROVAL, requestSlot.captured.action)
+    }
+
+    @Test
+    fun `getTimetableEntries sends the filter's non-null fields under contract camelCase keys`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val requestSlot = slot<DispatchRequest>()
+        coEvery { dispatcherApi.dispatch(capture(requestSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = JsonParser.parseString("[]")))
+
+        repository(dispatcherApi).getTimetableEntries(
+            TimetableFilter(sectionId = "3", facultyId = "201", termId = "1", academicYearId = "2026")
+        )
+
+        val payload = requestSlot.captured.payload
+        assertEquals("3", payload["sectionId"])
+        assertEquals("201", payload["facultyId"])
+        assertEquals("1", payload["termId"])
+        assertEquals("2026", payload["academicYearId"])
+        assertEquals(1, payload["inst_id"])
+        assertTrue(!payload.containsKey("roomId"))
+    }
+
+    @Test
+    fun `exportTimetable sends exportFormat alongside the filter and maps the export metadata`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val requestSlot = slot<DispatchRequest>()
+        val obj = JsonParser.parseString(
+            """{"exportFormat":"pdf","mimeType":"application/pdf","filename":"timetable_sec3.pdf","recordCount":24}"""
+        )
+        coEvery { dispatcherApi.dispatch(capture(requestSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = obj))
+
+        val result = repository(dispatcherApi).exportTimetable("pdf", TimetableFilter(sectionId = "3"))
+
+        assertEquals("timetable_sec3.pdf", result.filename)
+        assertEquals(24, result.recordCount)
+        assertEquals("pdf", requestSlot.captured.payload["exportFormat"])
+        assertEquals("3", requestSlot.captured.payload["sectionId"])
+        assertEquals(TimetableEndpoint.SubModules.SCHEDULE, requestSlot.captured.subMod)
+        assertEquals(TimetableEndpoint.ActionTypes.VIEW, requestSlot.captured.actionType)
+    }
+
+    @Test
+    fun `exportTimetable raises a clear error when the server doesn't confirm the export`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        coEvery { dispatcherApi.dispatch(any()) } returns
+            Response.success(DispatchResponse(status = "success", data = null))
+
+        try {
+            repository(dispatcherApi).exportTimetable("csv")
+            fail("Expected an APIError.BusinessError")
+        } catch (e: APIError.BusinessError) {
+            assertTrue(e.errorMessage.contains("export", ignoreCase = true))
+        }
+    }
+
+    @Test
+    fun `submitTimetableApproval dispatches to sm_approval timetableApproval add`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val requestSlot = slot<DispatchRequest>()
+        val obj = JsonParser.parseString(
+            """{"id":5,"status_id":"PENDING_APPROVAL","tt_code":"TT_SEC3_TERM1"}"""
+        )
+        coEvery { dispatcherApi.dispatch(capture(requestSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = obj))
+
+        val result = repository(dispatcherApi).submitTimetableApproval("5", "ready for review")
+
+        assertEquals("PENDING_APPROVAL", result.statusId)
+        assertEquals(5L, requestSlot.captured.payload["timetableId"])
+        assertEquals("ready for review", requestSlot.captured.payload["remarks"])
+        assertEquals(TimetableEndpoint.SubModules.APPROVAL, requestSlot.captured.subMod)
+        assertEquals(TimetableEndpoint.ActionTypes.ADD, requestSlot.captured.actionType)
+    }
+
+    @Test
+    fun `submitTimetableApproval falls back to a synthesized PENDING_APPROVAL result when the server confirms nothing`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        coEvery { dispatcherApi.dispatch(any()) } returns
+            Response.success(DispatchResponse(status = "success", data = null))
+
+        val result = repository(dispatcherApi).submitTimetableApproval("5", null)
+
+        assertEquals("PENDING_APPROVAL", result.statusId)
+    }
+
+    @Test
+    fun `decideTimetableApproval sends APPROVE or REJECT as the action`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val approveSlot = slot<DispatchRequest>()
+        coEvery { dispatcherApi.dispatch(capture(approveSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = JsonParser.parseString("""{"status_id":"PUBLISHED"}""")))
+
+        val approved = repository(dispatcherApi).decideTimetableApproval("5", approve = true, remarks = null)
+
+        assertEquals("APPROVE", approveSlot.captured.payload["action"])
+        assertEquals("PUBLISHED", approved.statusId)
+        assertEquals(TimetableEndpoint.ActionTypes.UPDATE, approveSlot.captured.actionType)
+
+        val rejectSlot = slot<DispatchRequest>()
+        coEvery { dispatcherApi.dispatch(capture(rejectSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = JsonParser.parseString("""{"status_id":"DRAFT"}""")))
+
+        val rejected = repository(dispatcherApi).decideTimetableApproval("5", approve = false, remarks = "needs fixes")
+
+        assertEquals("REJECT", rejectSlot.captured.payload["action"])
+        assertEquals("needs fixes", rejectSlot.captured.payload["remarks"])
+        assertEquals("DRAFT", rejected.statusId)
+    }
+
+    @Test
+    fun `requestSubstitution dispatches to sm_substitution substitution add with the reason required and remarks optional`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val requestSlot = slot<DispatchRequest>()
+        val obj = JsonParser.parseString(
+            """{"id":2,"old_fac_id":201,"new_fac_id":205,"status":"ACTIVE"}"""
+        )
+        coEvery { dispatcherApi.dispatch(capture(requestSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = obj))
+
+        val result = repository(dispatcherApi).requestSubstitution(
+            timetableEntryId = "1",
+            substituteFacultyId = "205",
+            reason = "sick leave",
+            originalFacultyId = "201",
+            substitutionDate = "2026-02-15",
+            remarks = null
+        )
+
+        assertEquals("201", result.oldFacultyId)
+        assertEquals("205", result.newFacultyId)
+        assertEquals("ACTIVE", result.status)
+        assertEquals(1L, requestSlot.captured.payload["timetableEntryId"])
+        assertEquals(205L, requestSlot.captured.payload["substituteFacultyId"])
+        assertEquals("sick leave", requestSlot.captured.payload["reason"])
+        assertEquals("2026-02-15", requestSlot.captured.payload["substitutionDate"])
+        assertTrue(!requestSlot.captured.payload.containsKey("remarks"))
+        assertEquals(TimetableEndpoint.SubModules.SUBSTITUTION, requestSlot.captured.subMod)
+        assertEquals(TimetableEndpoint.ActionTypes.ADD, requestSlot.captured.actionType)
+    }
+
+    @Test
+    fun `cancelSubstitution dispatches to sm_substitution substitution delete with the id and reason`() = runTest {
+        val dispatcherApi = mockk<DispatcherApi>()
+        val requestSlot = slot<DispatchRequest>()
+        coEvery { dispatcherApi.dispatch(capture(requestSlot)) } returns
+            Response.success(DispatchResponse(status = "success", data = null))
+
+        repository(dispatcherApi).cancelSubstitution("2", "no longer needed")
+
+        assertEquals(2L, requestSlot.captured.payload["id"])
+        assertEquals("no longer needed", requestSlot.captured.payload["reason"])
+        assertEquals(TimetableEndpoint.SubModules.SUBSTITUTION, requestSlot.captured.subMod)
+        assertEquals(TimetableEndpoint.ActionTypes.DELETE, requestSlot.captured.actionType)
     }
 }
